@@ -1,0 +1,15 @@
+{
+  "name": "atmosfera-web",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Atmosfera: motore emotivo e banco di prova del francobollo (sensori e foto).",
+  "license": "MIT",
+  "scripts": {
+    "dev": "npx --yes serve@14 public -l 3000",
+    "test": "node scripts/test.js",
+    "sheet": "node scripts/sheet.js out/foglio.png"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
