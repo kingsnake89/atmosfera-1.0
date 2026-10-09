@@ -1,8 +1,8 @@
 {
   "name": "atmosfera-web",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Atmosfera: motore emotivo e banco di prova del francobollo (sensori e foto).",
+  "description": "Atmosfera: dal momento e da come ti senti, un francobollo a sei inchiostri che impara il tuo gusto.",
   "license": "MIT",
   "scripts": {
     "dev": "npx --yes serve@14 public -l 3000",

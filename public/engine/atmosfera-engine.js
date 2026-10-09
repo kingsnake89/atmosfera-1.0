@@ -136,20 +136,38 @@ const PALETTES = [
 ];
 const ARCHETYPES = ['nucleo', 'costellazione', 'orizzonte', 'deriva'];
 
-function grammar(e, seed) {
+/* ---------- STILE (geni) ----------
+   Un vettore di 22 numeri, ciascuno circa fra −2 e +2, che "piega" la
+   grammatica senza cambiarne il senso: la stessa emozione resta riconoscibile,
+   ma con le preferenze di chi guarda. Tutti a zero = comportamento di base.
+     0–9   preferenza per ciascuna tavolozza
+     10–13 preferenza per ciascuna composizione
+     14 densità delle linee   15 grana del retino   16 fondo pieno o leggero
+     17 numero di accenti     18 grandezza del nucleo   19 turbolenza
+     20 propensione al buio   21 propensione alle campiture a gradini */
+const GENE_PAL = 0, GENE_ARCH = PALETTES.length;
+const GENE_NAMES = ['densita', 'grana', 'fondo', 'accenti', 'nucleo', 'turbolenza', 'buio', 'gradini'];
+const GENE_C = GENE_ARCH + ARCHETYPES.length;
+const NGENES = GENE_C + GENE_NAMES.length;
+function gene(st, i) { return st && typeof st[i] === 'number' ? clamp(st[i], -2.5, 2.5) : 0; }
+
+function grammar(e, seed, style) {
   const r = rng(seed ^ 0xA5A5);
+  const G = i => gene(style, i);
   // tavolozza: vicinanza nello spazio emotivo, con un po' di caso
   let best = 0, bw = -1;
   for (let i = 0; i < PALETTES.length; i++) {
     const p = PALETTES[i];
     const d2 = (p.v - e.valenza) * (p.v - e.valenza) + (p.e - e.energia) * (p.e - e.energia) + 0.6 * (p.c - e.calore) * (p.c - e.calore);
-    let w = Math.exp(-d2 / 0.05) * (0.7 + 0.6 * r());
+    // la distanza emotiva conta, ma oltre una certa soglia smette di crescere:
+    // così un gusto personale forte può reinterpretare un'emozione
+    let w = Math.exp(Math.max(-4, -d2 / 0.05) + 2.0 * G(GENE_PAL + i)) * (0.7 + 0.6 * r());
     if (p.id === 'cenere') w *= 0.35 + 1.4 * e.tensione;          // il grigio è per i momenti tesi
     if (w > bw) { bw = w; best = i; }
   }
   const pal = PALETTES[best];
   let ramp = pal.ramp.slice(), acc = pal.acc, lowKey = false;
-  if (e.chiave < 0.3) {                                            // chiave bassa: fondo scuro, segni luminosi
+  if (e.chiave < 0.3 + 0.1 * G(GENE_C + 6)) {                                            // chiave bassa: fondo scuro, segni luminosi
     lowKey = true;
     const mid = ramp.slice(1, -1).reverse();
     ramp = [BLACK].concat(mid, [acc === YEL ? YEL : PAPER]);
@@ -164,6 +182,7 @@ function grammar(e, seed) {
     0.15 + 1.3 * (1 - e.energia) * (0.4 + e.valenza),              // orizzonte
     0.15 + 0.9 * e.tensione + 0.6 * e.energia                      // deriva
   ];
+  for (let i = 0; i < aw.length; i++) aw[i] *= Math.exp(1.1 * G(GENE_ARCH + i));
   const arche = pickW(aw, r());
 
   return {
@@ -171,15 +190,15 @@ function grammar(e, seed) {
     arche: arche, archeName: ARCHETYPES[arche],
     // CPPN
     cppnScale: 0.8 + 2.8 * e.energia,
-    cppnBands: e.tensione > 0.55 ? 3 + Math.floor(3 * r()) : 0,
-    groundAmt: (0.03 + 0.09 * (1 - e.valenza) + 0.08 * e.energia) * 3 / (ramp.length - 1) * (lowKey ? 0.8 : 1),
+    cppnBands: e.tensione > 0.55 - 0.18 * G(GENE_C + 7) ? 3 + Math.floor(3 * r()) : 0,
+    groundAmt: (0.03 + 0.09 * (1 - e.valenza) + 0.08 * e.energia) * 3 / (ramp.length - 1) * (lowKey ? 0.8 : 1) * Math.exp(0.55 * G(GENE_C + 2)),
     groundBase: lowKey ? 0.0 : (1 - e.chiave) * 0.06,
     vignette: 0.35 * e.intimita,
     // flow field
-    lines: Math.round(26 + 190 * e.energia * (0.6 + 0.4 * r())),
+    lines: Math.round((26 + 190 * e.energia * (0.6 + 0.4 * r())) * Math.exp(0.5 * G(GENE_C + 0))),
     lineLen: Math.round(28 + 110 * (1 - 0.55 * e.energia)),
     fieldFreq: 1.1 + 4.2 * e.energia,
-    swirl: 0.7 + 2.2 * e.energia,
+    swirl: (0.7 + 2.2 * e.energia) * Math.exp(0.4 * G(GENE_C + 5)),
     converge: 0.12 + 0.6 * Math.max(e.tensione, 0.75 * e.intimita),
     orbit: 1 - e.tensione,                                         // 1 = le linee girano attorno, 0 = puntano al centro
     jitter: e.tensione * e.tensione * 1.2,
@@ -189,10 +208,11 @@ function grammar(e, seed) {
     attrGamma: 0.55 + 0.8 * e.tensione,
     attrDensity: 0.6 + 0.9 * e.energia,
     // accenti
-    accents: Math.round(1 + 6 * e.energia * (1 - 0.6 * e.intimita)),
+    accents: Math.max(0, Math.round((1 + 6 * e.energia * (1 - 0.6 * e.intimita)) * Math.exp(0.6 * G(GENE_C + 3)))),
     pulse: e.intimita > 0.5 ? 2 + Math.round(4 * (e.intimita - 0.5) * 2) : 0,
     // grana del retino: ordinato (calmo) → granuloso (agitato)
-    grain: clamp(0.08 + 0.75 * e.energia - 0.25 * e.intimita, 0, 0.9),
+    grain: clamp(0.08 + 0.75 * e.energia - 0.25 * e.intimita + 0.2 * G(GENE_C + 1), 0, 0.9),
+    nucleusScale: clamp(1 + 0.2 * G(GENE_C + 4), 0.6, 1.4),
     e: e
   };
 }
@@ -410,8 +430,8 @@ function drawAccents(A, r, g, foci) {
 /* =====================================================================
    RENDER — riempie out (Uint8Array W*H) con indici d'inchiostro
    ===================================================================== */
-function render(e, seed, out) {
-  const g = grammar(e, seed);
+function render(e, seed, out, style) {
+  const g = grammar(e, seed, style);
   const r = rng(seed);
   const T = new Float32Array(W * H);           // sull'ESP32: uint8_t, 57,6 KB
   const A = new Uint8Array(W * H);             // maschera accenti
@@ -465,7 +485,7 @@ function render(e, seed, out) {
   }
 
   // 5. nuclei (attrattori)
-  const nuclei = foci.map(f => drawNucleus(T, r, g, f.cx, f.cy, f.size, r() * 6.283));
+  const nuclei = foci.map(f => drawNucleus(T, r, g, f.cx, f.cy, Math.min(mn * 0.98, f.size * g.nucleusScale), r() * 6.283));
 
   // 6. accenti
   drawAccents(A, r, g, foci);
@@ -508,7 +528,7 @@ function isHole(x, y) {
   return false;
 }
 
-const API = { W, H, IX0, IX1, IY0, IY1, SX0, SX1, SY0, SY1, PAPER, BLACK, RED, YEL, BLU, GRN, INK_NAMES,
+const API = { W, H, IX0, IX1, IY0, IY1, SX0, SX1, SY0, SY1, PAPER, BLACK, RED, YEL, BLU, GRN, INK_NAMES, NGENES, GENE_PAL, GENE_ARCH, GENE_C, GENE_NAMES,
   emotionFromSensors, moodName, grammar, render, PALETTES, ARCHETYPES };
 if (typeof module !== 'undefined') module.exports = API; else root.AtmosferaEngine = API;
 })(this);

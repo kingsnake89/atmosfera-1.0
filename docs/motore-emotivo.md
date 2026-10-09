@@ -1,4 +1,4 @@
-# Motore emotivo — v0.3
+# Motore emotivo — v0.4
 
 Display di riferimento: Spectra 6 da 1,54", 240 × 240 pixel, 6 inchiostri (bianco, nero, rosso, giallo, blu, verde).
 
@@ -47,7 +47,16 @@ Nome dello stato d'animo: griglia 3×3 valenza × energia (malinconia, disagio, 
   - intimità ← buio e poco dettaglio
   - chiave ← luminosità
 
-## 4. Grammatica
+## 4. Come ti senti (ghiera)
+
+Dodici stati a passi di 30°, ciascuno con valenza, energia, tensione, intimità e calore: tenerezza 0°, gioia 30°, entusiasmo 60°, meraviglia 90°, tensione 120°, rabbia 150°, ansia 180°, tristezza 210°, malinconia 240°, stanchezza 270°, calma 300°, serenità 330°. Fra due stati si interpola; la distanza dal centro scala dal neutro (v .5, e .4, t .3, i .45, c .5). Zona morta al centro: "non so".
+
+Unione con i dati (w = quanto conta come ti senti, predefinito 0,75):
+- valenza, energia, tensione, intimità ← dati + w · (sentito − dati)
+- chiave ← dati + 0,3 · w · (valenza sentita − valenza dei dati)
+- calore ← dati + 0,35 · w · (calore sentito − dati)
+
+## 5. Grammatica
 
 - **Tavolozza**: 10 rampe con una "casa" nello spazio (valenza, energia, calore): Sole, Lume, Prato, Lago, Mezzodì, Brace, Temporale, Ghiaccio, Notte, Cenere. Con chiave < 0,30 la rampa si capovolge: fondo scuro e segni luminosi.
 - **Composizione**: nucleo (intimità), costellazione (energia e poca intimità), orizzonte (calma e piacevole), deriva (tensione ed energia).
@@ -57,7 +66,20 @@ Nome dello stato d'animo: griglia 3×3 valenza × energia (malinconia, disagio, 
 - **Accenti**: forme nel colore complementare (dischi, anelli, lune, schegge, trattini). L'intimità le avvicina al nucleo.
 - **Retino**: Bayer 8×8 mescolato a rumore in base all'energia.
 
-## 5. Costi sul dispositivo (stime)
+## 6. Stile e gusto
+
+22 geni (circa −2,5…+2,5), tutti a zero = comportamento di base:
+- 0–9: preferenza per tavolozza (log-peso +2·g; la distanza emotiva è limitata a −4 nel log-peso, così un gusto forte può reinterpretare un'emozione);
+- 10–13: preferenza per composizione (peso × e^(1,1·g));
+- 14 densità linee (× e^(0,5·g)), 15 grana (+0,2·g), 16 fondo (× e^(0,55·g)), 17 accenti (× e^(0,6·g)), 18 nucleo (× 1+0,2·g), 19 turbolenza (× e^(0,4·g)), 20 buio (soglia chiave 0,3+0,1·g), 21 gradini (soglia tensione 0,55−0,18·g).
+
+Apprendimento:
+- previsione per un'emozione = media del gusto generale (peso 2) e delle scelte passate pesate per somiglianza emotiva, e^(−d²/0,06);
+- proposta = previsione + rumore × 0,35 · ampiezza; variante = previsione + rumore × ampiezza (× 1,25 su tavolozze e composizioni);
+- ampiezza = max(0,22; 1,1/√(1+n/3));
+- dopo "È questa": media += η·(scelto − media) + η·0,25·(scelto − media degli scartati), η = max(0,1; 0,45/√n).
+
+## 7. Costi sul dispositivo (stime)
 
 - Buffer di tono 240×240 in uint8: 57,6 KB. Maschera accenti: 57,6 KB. Uscita a 4 bit: 28,8 KB. Sta in PSRAM con ampio margine.
 - Circa 35 ms nel browser su un portatile; sull'ESP32-S3 stimati 1–3 s, da misurare.

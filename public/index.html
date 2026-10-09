@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Atmosfera, banco di prova</title>
-<meta name="description" content="Banco di prova del motore emotivo di Atmosfera: dal luogo e dal momento, con o senza una foto, a un francobollo a sei inchiostri.">
+<title>Atmosfera</title>
+<meta name="description" content="Atmosfera: dal luogo, dal momento e da come ti senti, un francobollo a sei inchiostri che impara il tuo gusto.">
+<meta name="theme-color" content="#C7CBC3">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,92 +14,152 @@
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="t">
-      <h1>Atmosfera <em>banco di prova</em></h1>
-      <p>Il motore emotivo trasforma un momento in un francobollo a sei inchiostri. Finché non c'è l'hardware, i sensori sono i dati aperti del luogo in cui ti trovi, o di quello in cui hai scattato una foto.</p>
-    </div>
-    <div class="seg big" role="group" aria-label="Da dove parte lo scatto">
-      <button id="m_sens" aria-pressed="true">Solo sensori</button>
-      <button id="m_foto" aria-pressed="false">Immagine + sensori</button>
-    </div>
+  <header class="top">
+    <h1>Atmosfera</h1>
+    <nav class="tabs" role="tablist" aria-label="Sezioni">
+      <button role="tab" id="tab_scatta" aria-controls="p_scatta" aria-selected="true">Scatta</button>
+      <button role="tab" id="tab_archivio" aria-controls="p_archivio" aria-selected="false">Archivio <span class="count" id="archCount"></span></button>
+      <button role="tab" id="tab_lab" aria-controls="p_lab" aria-selected="false">Laboratorio</button>
+    </nav>
   </header>
+  <p class="volatile" id="volatile" hidden>Questo browser non permette di salvare in modo permanente (forse è una finestra privata): l'archivio sparirà alla chiusura. Esportalo prima di uscire.</p>
 
-  <div class="grid">
-    <div class="device-col">
-      <div class="banner" id="albumBanner" hidden>
-        <span>Stai guardando un francobollo dell'album.</span>
-        <button class="plain" id="backLive">Torna allo scatto</button>
-      </div>
-      <div class="device">
-        <div class="screen">
-          <canvas id="eink" width="240" height="240" aria-label="Francobollo sul display e-ink Spectra 6"></canvas>
-          <div class="empty" id="emptyMsg" hidden></div>
+  <!-- ============ SCATTA ============ -->
+  <section id="p_scatta" role="tabpanel" aria-labelledby="tab_scatta">
+    <div class="shoot">
+      <section class="step moment" aria-labelledby="h_moment">
+        <div class="step-h"><span class="n">1</span><h2 id="h_moment">Il momento</h2></div>
+        <div class="seg" role="group" aria-label="Da dove parte lo scatto">
+          <button id="m_sens" aria-pressed="true">Solo sensori</button>
+          <button id="m_foto" aria-pressed="false">Immagine + sensori</button>
         </div>
-        <p class="mood" id="mood"></p>
-        <div class="row center">
-          <div class="stepper" role="group" aria-label="Nota scelta con la manopola">
-            <button id="notePrev" aria-label="Nota precedente">‹</button><span id="noteNow"></span><button id="noteNext" aria-label="Nota successiva">›</button>
+
+        <div data-modes="sens">
+          <div class="row">
+            <button class="plain primary" id="locate">Rileva qui e ora</button>
+            <button class="plain" id="listen">Ascolta 3 secondi</button>
           </div>
-          <button class="plain" id="reseed">Nuovo seme</button>
+          <p class="ctxstatus" id="nowStatus" aria-live="polite"></p>
+          <div class="simnote" id="simNote" hidden><span id="simName"></span><button class="link" id="simOff">Torna ai dati reali</button></div>
         </div>
-        <div class="row center">
-          <button class="plain primary" id="save">Salva nell'album</button>
-          <button class="plain" id="png">Scarica PNG</button>
-          <button class="plain" id="bin" title="Buffer a 4 bit per pixel, 28.800 byte">Esporta per il display</button>
-        </div>
-        <p class="meta" id="meta"></p>
-        <p class="status" id="status" role="status" aria-live="polite"></p>
-      </div>
-      <p class="label">Stesso momento, altri semi</p>
-      <div class="strip" id="strip"></div>
-    </div>
 
-    <div class="panel">
-      <section data-modes="sens">
-        <h2>Qui e ora</h2>
-        <p class="lead">I dati arrivano dalla tua posizione: meteo e aria da Open-Meteo, luogo e stima del rumore da OpenStreetMap, luce dalla posizione del sole.</p>
-        <div class="row" style="margin-top:0">
-          <button class="plain primary" id="locate">Rileva qui e ora</button>
-          <button class="plain" id="listen">Ascolta 3 secondi</button>
+        <div data-modes="foto">
+          <div class="drop" id="drop">
+            <div class="pick">
+              <label class="plain primary" for="file">Scatta o scegli una foto</label>
+              <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/*" hidden>
+              <p>Oppure trascinala qui. La foto resta sul tuo dispositivo: fuori escono solo luogo e ora, per chiedere i dati di quel momento.</p>
+            </div>
+            <p class="err" id="photoErr" hidden></p>
+            <div class="photo" id="photoBox" hidden><img id="photoImg" alt="La foto scelta"><dl class="reads" id="reads"></dl></div>
+          </div>
+          <p class="ctxstatus" id="photoStatus" aria-live="polite"></p>
         </div>
-        <p class="ctxstatus" id="nowStatus" aria-live="polite"></p>
-        <dl class="reads" id="nowReads" hidden></dl>
-        <p class="label">Oppure una scena simulata</p>
+
+        <ul class="facts" id="facts" aria-label="Dati del momento"></ul>
+      </section>
+
+      <section class="step feel" aria-labelledby="h_feel">
+        <div class="step-h"><span class="n">2</span><h2 id="h_feel">Come ti senti?</h2></div>
+        <p class="lead">Ruota sulla ghiera fino all'emozione che senti; più ti allontani dal centro, più è forte. Se non trovi la parola giusta, scrivila.</p>
+        <div class="wheelwrap">
+          <div class="wheel" id="wheel" tabindex="0" role="slider" aria-label="Ghiera delle emozioni" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="nessuna emozione scelta"></div>
+          <p class="feltnow" id="feltNow" aria-live="polite"></p>
+          <button class="link" id="feltClear" hidden>Non so, lascia decidere ai dati</button>
+        </div>
+        <label class="textlabel" for="feelText">Con parole tue</label>
+        <textarea id="feelText" rows="3" maxlength="400" placeholder="Per esempio: stanca ma contenta, mi manca il mare…"></textarea>
+        <div class="suggest" id="suggest" aria-live="polite"></div>
+      </section>
+
+      <section class="step stamp" aria-labelledby="h_stamp">
+        <div class="step-h"><span class="n">3</span><h2 id="h_stamp">Il tuo francobollo</h2></div>
+        <div class="device">
+          <div class="screen">
+            <canvas id="eink" width="240" height="240" aria-label="Francobollo sul display e-ink Spectra 6"></canvas>
+            <div class="empty" id="emptyMsg" hidden></div>
+          </div>
+          <p class="mood" id="mood"></p>
+          <div class="choose">
+            <button class="plain big" id="another">Un'altra</button>
+            <button class="plain primary big" id="thisone">È questa</button>
+          </div>
+          <div class="savedbar" id="savedBar" hidden>
+            <span>Salvata nell'archivio.</span>
+            <button class="plain" id="shareNow">Salva immagine</button>
+            <button class="plain" id="newMoment">Nuovo momento</button>
+          </div>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </div>
+        <div class="variants" id="variantsBox" hidden>
+          <p class="label">Varianti viste <span id="varCount"></span></p>
+          <div class="vstrip" id="vstrip"></div>
+        </div>
+        <p class="tune-line" id="tuneLine"></p>
+      </section>
+    </div>
+  </section>
+
+  <!-- ============ ARCHIVIO ============ -->
+  <section id="p_archivio" role="tabpanel" aria-labelledby="tab_archivio" hidden>
+    <div class="arch-head">
+      <div>
+        <h2>Archivio</h2>
+        <p class="lead" id="archLead"></p>
+      </div>
+      <div class="row">
+        <button class="plain primary" id="zipBtn">Esporta tutto (.zip)</button>
+        <label class="plain" for="importFile">Importa</label>
+        <input type="file" id="importFile" accept=".zip,application/zip,application/json,.json" hidden>
+      </div>
+    </div>
+    <p class="status left" id="archStatus" role="status" aria-live="polite"></p>
+    <div class="chips" id="filters" aria-label="Filtra per emozione"></div>
+
+    <article class="detail" id="detail" hidden aria-labelledby="d_title">
+      <div class="detail-img"><img id="d_img" alt=""></div>
+      <div class="detail-body">
+        <h3 id="d_title"></h3>
+        <p class="quote" id="d_text" hidden></p>
+        <dl class="reads" id="d_reads"></dl>
+        <div class="row">
+          <button class="plain primary" id="d_share">Salva immagine</button>
+          <button class="plain" id="d_del">Elimina</button>
+          <button class="plain" id="d_close">Chiudi</button>
+        </div>
+      </div>
+    </article>
+
+    <div class="album" id="album"></div>
+  </section>
+
+  <!-- ============ LABORATORIO ============ -->
+  <section id="p_lab" role="tabpanel" aria-labelledby="tab_lab" hidden>
+    <p class="lead lab-lead">Gli strumenti per provare e tarare il motore. Quello che cambi qui vale per lo scatto in corso.</p>
+    <div class="lab">
+      <section>
+        <h2>Il tuo gusto</h2>
+        <div id="tasteBox"></div>
+        <div class="row"><button class="plain" id="tasteReset">Ricomincia da zero</button></div>
+      </section>
+
+      <section>
+        <h2>Scene simulate</h2>
+        <p class="lead">Per provare senza GPS né rete. Scegline una e torna su Scatta.</p>
         <div class="chips" id="scenes"></div>
       </section>
 
-      <section data-modes="foto">
-        <h2>La foto</h2>
-        <p class="lead">L'immagine resta sul tuo dispositivo e viene letta qui. Fuori escono solo le coordinate, per chiedere i dati di quel luogo e di quel momento.</p>
-        <div class="drop" id="drop">
-          <div class="pick">
-            <label class="plain primary" for="file" style="cursor:pointer">Scatta o scegli una foto</label>
-            <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/*" hidden>
-            <p>Oppure trascinala qui. Una JPEG con dati EXIF porta con sé luogo, ora ed esposizione.</p>
-          </div>
-          <p class="err" id="photoErr" hidden></p>
-          <div class="photo" id="photoBox" hidden>
-            <img id="photoImg" alt="La foto scelta">
-            <dl class="reads" id="reads"></dl>
-          </div>
+      <section>
+        <h2>Pesi</h2>
+        <div class="ctl">
+          <div class="top"><label for="wFelt">Quanto conta come ti senti</label><output id="o_wFelt" for="wFelt"></output></div>
+          <input type="range" id="wFelt" min="0" max="1" step="0.05">
+          <div class="maps">Ciò che scegli sulla ghiera decide la struttura del francobollo. L'ambiente tiene buona parte della luce e del colore.</div>
         </div>
-        <div id="photoCtxBox" hidden>
-          <p class="label">Il luogo e il momento della foto</p>
-          <p class="ctxstatus" id="photoStatus" aria-live="polite"></p>
-          <dl class="reads" id="photoReads" hidden></dl>
-        </div>
-        <div class="ctl" style="margin-top:14px;border-bottom:1px solid var(--line)">
+        <div class="ctl">
           <div class="top"><label for="peso">Quanto conta l'immagine</label><output id="o_peso" for="peso"></output></div>
           <input type="range" id="peso" min="0" max="1" step="0.05">
-          <div class="maps">A zero la foto fornisce solo luce e colore della luce. Salendo, anche dettaglio, contrasto, saturazione e luminosità spostano lo stato d'animo.</div>
-        </div>
-        <div id="compareBox" hidden>
-          <p class="label">Confronto con lo stesso seme</p>
-          <div class="compare">
-            <figure><div class="thumb"><canvas id="cmpA" width="240" height="240"></canvas></div><figcaption>solo sensori</figcaption></figure>
-            <figure><div class="thumb"><canvas id="cmpB" width="240" height="240"></canvas></div><figcaption>immagine + sensori</figcaption></figure>
-          </div>
+          <div class="maps">Solo per Immagine + sensori. A zero la foto dà solo luce e colore della luce; salendo, anche dettaglio, contrasto e saturazione spostano lo stato d'animo.</div>
         </div>
       </section>
 
@@ -118,38 +179,39 @@
       </div>
 
       <section>
-        <h2>Grammatica di questo scatto</h2>
+        <h2>Grammatica dello scatto</h2>
         <dl class="gram" id="gram"></dl>
+        <div class="row"><button class="plain" id="bin" title="Buffer a 4 bit per pixel, 28.800 byte">Esporta per il display</button></div>
+      </section>
+
+      <section>
+        <h2>Atlante delle emozioni</h2>
+        <p class="lead">Nove stati d'animo con lo stile e il seme dello scatto corrente. Tocca un riquadro per provarlo con la taratura a mano.</p>
+        <div class="atlas" id="atlas"></div>
       </section>
     </div>
+  </section>
+
+  <div class="dock" id="dock" hidden>
+    <button class="dock-thumb" id="dockOpen" type="button" aria-label="Vai al francobollo"><canvas id="dockCanvas" width="240" height="240"></canvas></button>
+    <div class="dock-txt"><b id="dockMood"></b><span id="dockSub"></span></div>
+    <button class="plain" id="dockAnother" type="button">Un'altra</button>
+    <button class="plain primary" id="dockThis" type="button">È questa</button>
   </div>
 
-  <section class="below">
-    <h2>Album</h2>
-    <p class="lead">Gli scatti salvati restano in questo browser. Ogni voce conserva dati, luogo e seme: il francobollo si ridisegna ogni volta, come farà il dispositivo.</p>
-    <div class="row" style="margin:0 0 16px">
-      <button class="plain" id="exportAlbum">Esporta album (JSON)</button>
-      <label class="plain" for="importAlbum" style="cursor:pointer">Importa album</label>
-      <input type="file" id="importAlbum" accept="application/json,.json" hidden>
-    </div>
-    <div class="album" id="album"></div>
-  </section>
-
-  <section class="below">
-    <h2>Atlante delle emozioni</h2>
-    <p class="lead">Nove stati d'animo con lo stesso seme dello scatto corrente. Cambiano solo valenza ed energia. Tocca un riquadro per provarlo con la taratura a mano.</p>
-    <div class="atlas" id="atlas"></div>
-  </section>
-
   <p class="foot">
-    Atmosfera, motore emotivo v0.3. Display di riferimento: Spectra 6 da 1,54", 240 × 240 pixel. I dati di esterno (luce, temperatura, CO₂) sono diversi da quelli di una stanza: correggili a mano quando serve.<br>
-    Meteo e qualità dell'aria: <a href="https://open-meteo.com/" rel="noopener" target="_blank">Open-Meteo</a> (CC BY 4.0) e Copernicus CAMS. Luoghi e strade: © contributori di <a href="https://www.openstreetmap.org/copyright" rel="noopener" target="_blank">OpenStreetMap</a> (ODbL). Codice aperto con licenza MIT.
+    Atmosfera v0.4 · display di riferimento Spectra 6 da 1,54", 240 × 240 pixel. Archivio, gusto e foto restano in questo browser.<br>
+    Meteo e qualità dell'aria: <a href="https://open-meteo.com/" rel="noopener" target="_blank">Open-Meteo</a> (CC BY 4.0) e Copernicus CAMS. Luoghi e strade: © contributori di <a href="https://www.openstreetmap.org/copyright" rel="noopener" target="_blank">OpenStreetMap</a> (ODbL). Codice aperto, licenza MIT.
   </p>
 </div>
 
 <script src="engine/atmosfera-engine.js"></script>
 <script src="js/photo.js"></script>
 <script src="js/atmo.js"></script>
+<script src="js/taste.js"></script>
+<script src="js/feel.js"></script>
+<script src="js/db.js"></script>
+<script src="js/zip.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

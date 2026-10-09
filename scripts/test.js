@@ -3,6 +3,9 @@ const fs = require('fs'), path = require('path'), assert = require('assert');
 const E = require('../public/engine/atmosfera-engine.js');
 const P = require('../public/js/photo.js');
 const A = require('../public/js/atmo.js');
+const T = require('../public/js/taste.js');
+const F = require('../public/js/feel.js');
+const Z = require('../public/js/zip.js');
 let ok = 0;
 function t(name, fn) { try { fn(); ok++; console.log('  ✓ ' + name); } catch (e) { console.error('  ✗ ' + name + '\n    ' + e.message); process.exitCode = 1; } }
 
@@ -93,6 +96,76 @@ t('rumore: incrocio trafficato > vicolo di notte', () => {
   const calm = A.noiseFromOSM([{ tags: { highway: 'residential' } }], 3);
   assert.ok(busy.db > 60 && calm.db < 35, busy.db + ' / ' + calm.db);
 });
+
+console.log('Stile e gusto');
+const emoMal = { valenza: .3, energia: .2, tensione: .2, intimita: .6, chiave: .5, calore: .3 };
+const emoJoy = { valenza: .9, energia: .7, tensione: .1, intimita: .4, chiave: .8, calore: .8 };
+t('geni a zero = disegno di base; geni diversi = disegno diverso', () => {
+  const a = new Uint8Array(E.W * E.H), b = new Uint8Array(E.W * E.H), c = new Uint8Array(E.W * E.H);
+  E.render(emoMal, 9, a); E.render(emoMal, 9, b, new Array(E.NGENES).fill(0));
+  assert.deepStrictEqual(a, b);
+  const g = new Array(E.NGENES).fill(0); g[E.GENE_C] = 2; g[E.GENE_C + 6] = 2; E.render(emoMal, 9, c, g);
+  let d = 0; for (let i = 0; i < a.length; i++) if (a[i] !== c[i]) d++;
+  assert.ok(d > 2000, 'troppo simili: ' + d);
+});
+t('la tavolozza preferita vince quando il gusto è forte', () => {
+  const g = new Array(E.NGENES).fill(0); const lago = E.PALETTES.findIndex(p => p.id === 'lago'); g[E.GENE_PAL + lago] = 2.5;
+  let hits = 0; for (let s = 0; s < 20; s++) if (E.grammar(emoJoy, s, g).palette === 'lago') hits++;
+  assert.ok(hits >= 14, 'lago scelto ' + hits + '/20');
+});
+t('scegliere sempre la stessa cosa sposta il gusto e restringe le varianti', () => {
+  let ta = T.newTaste(); const s0 = T.spread(ta);
+  const target = new Array(T.NG).fill(0); target[3] = 2; target[E.GENE_C] = -1.5;
+  for (let i = 0; i < 12; i++) ta = T.learn(ta, emoMal, target, [T.propose(ta, emoMal, i, 1)], 4 - Math.min(3, i >> 2));
+  assert.ok(ta.mean[3] > 1.2, 'gene tavolozza ' + ta.mean[3]);
+  assert.ok(ta.mean[E.GENE_C] < -0.9);
+  assert.ok(T.spread(ta) < s0 * 0.6);
+  const st = T.stats(ta); assert.ok(st.recent < st.first);
+});
+t('il gusto dipende dall’emozione: per la malinconia ricorda le scelte malinconiche', () => {
+  let ta = T.newTaste();
+  const blue = new Array(T.NG).fill(0); blue[7] = 2.4;           // notte
+  const sun = new Array(T.NG).fill(0); sun[0] = 2.4;             // sole
+  for (let i = 0; i < 6; i++) { ta = T.learn(ta, emoMal, blue, [], 2); ta = T.learn(ta, emoJoy, sun, [], 2); }
+  const pm = T.predict(ta, emoMal), pj = T.predict(ta, emoJoy);
+  assert.ok(pm[7] > pm[0] + 0.5 && pj[0] > pj[7] + 0.5, pm[7] + ' / ' + pj[0]);
+});
+t('proposte riproducibili e varianti diverse', () => {
+  const ta = T.newTaste();
+  assert.deepStrictEqual(T.propose(ta, emoMal, 5, 2), T.propose(ta, emoMal, 5, 2));
+  assert.notDeepStrictEqual(T.propose(ta, emoMal, 5, 1), T.propose(ta, emoMal, 5, 2));
+});
+
+console.log('Come ti senti');
+t('la ghiera: in basso a sinistra malinconia, al centro "non so"', () => {
+  assert.strictEqual(F.pick(240, 0.9).id, 'malinconia');
+  assert.strictEqual(F.pick(30, 0.9).id, 'gioia');
+  assert.strictEqual(F.pick(100, 0.05).id, null);
+  assert.ok(F.pick(150, 1).vec.tensione > 0.9);
+});
+t('quello che senti pesa più dei dati, ma la luce resta dell’ambiente', () => {
+  const base = E.emotionFromSensors({ lux: 6000, kelvin: 4800, db: 42, temp: 22, hum: 50, co2: 600 });
+  const m = F.blend(base, F.pickById('tristezza', 1), 0.75);
+  assert.ok(m.valenza < base.valenza - 0.3);
+  assert.ok(Math.abs(m.chiave - base.chiave) < 0.25);
+});
+t('le parole scritte propongono uno stato', () => {
+  assert.deepStrictEqual(F.fromText('sono stanca ma serena').map(x => x.id), ['stanchezza', 'serenita']);
+  assert.strictEqual(F.fromText('ho paura e sono agitato')[0].id, 'ansia');
+  assert.strictEqual(F.fromText('non sono triste').length, 0);
+  assert.strictEqual(F.fromText('bel sole a giugno').length, 0);
+});
+
+console.log('Archivio');
+t('zip: scrivo e rileggo immagini e testo', () => {
+  const files = [{ name: 'atmosfera.json', data: new TextEncoder().encode('{"città":"Bologna"}') }, { name: 'immagini/a.png', data: new Uint8Array([137, 80, 78, 71, 1, 2, 3]) }];
+  const back = Z.readZip(Z.makeZip(files));
+  assert.strictEqual(back.length, 2);
+  assert.strictEqual(new TextDecoder().decode(back[0].data), '{"città":"Bologna"}');
+  assert.deepStrictEqual(Array.from(back[1].data), [137, 80, 78, 71, 1, 2, 3]);
+  assert.strictEqual(Z.crc32(new TextEncoder().encode('123456789')), 0xCBF43926);
+});
+
 (async () => {
   global.fetch = async (url) => {
     const u = String(url);

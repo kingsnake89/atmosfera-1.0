@@ -1,10 +1,40 @@
-# Atmosfera, banco di prova
+# Atmosfera
 
 Atmosfera è un dispositivo che non esiste ancora: una specie di macchina fotografica che, invece di catturare ciò che si vede, cattura **come si sta** in un momento. Luce, colore della luce, rumore, temperatura, umidità e CO₂ diventano un "francobollo" astratto su un display e-ink a colori Spectra 6.
 
-Questa webapp è il banco di prova del **motore emotivo**, cioè l'algoritmo che disegna il francobollo. È la stessa logica che verrà portata sull'ESP32-S3.
+Questa webapp è il banco di prova del **motore emotivo**, cioè l'algoritmo che disegna il francobollo, ed è già usabile come diario: la stessa logica verrà portata sull'ESP32-S3.
 
-## Due modi di descrivere un momento
+## Come si usa
+
+L'app ha tre schede.
+
+**Scatta**, in tre passi:
+1. **Il momento.** *Solo sensori*: dati aperti di dove sei adesso. *Immagine + sensori*: dati del luogo e del momento di una foto.
+2. **Come ti senti?** Una ghiera con dodici emozioni: destra piacevole, sinistra spiacevole, in alto energia, in basso quiete. Più ti allontani dal centro, più è forte. Se non trovi la parola, scrivila: un piccolo lessico propone l'emozione sulla ghiera, e le tue parole finiscono sul francobollo e nell'archivio.
+3. **Il tuo francobollo.** Premi *Un'altra* finché non trovi quello che senti tuo, poi *È questa*. Sul telefono, mentre giri la ghiera, un'anteprima fissa in basso ti mostra il francobollo che cambia.
+
+**Archivio**: tutti i momenti scelti, filtrabili per emozione. Ogni voce ha immagine, data, luogo, emozione sentita, parole, dati dell'ambiente e quale variante hai scelto. *Salva immagine* sul telefono apre il foglio di condivisione (da lì: Salva immagine, AirDrop, File…); sul computer scarica il PNG.
+
+**Laboratorio**: il gusto imparato, le scene simulate, i pesi, i sensori e il vettore emotivo modificabili, l'atlante delle emozioni e l'esportazione per il display.
+
+## Come impara il tuo gusto
+
+Ogni francobollo nasce da un'emozione e da uno **stile**: 22 "geni" che piegano la grammatica senza cambiarne il senso.
+- 10 preferenze per le tavolozze;
+- 4 preferenze per le composizioni;
+- 8 tratti: densità delle linee, grana, fondo pieno o leggero, accenti, grandezza del nucleo, turbolenza, propensione al buio, campiture a gradini.
+
+Come funziona:
+- **La proposta** è lo stile che il gusto attuale prevede per l'emozione di quel momento.
+- **Un'altra** pesca una variante attorno a quella previsione. All'inizio le varianti sono molto diverse fra loro; più scelte fai, più si stringono attorno a ciò che ti somiglia.
+- **È questa** sposta il gusto verso lo stile scelto e un po' lontano da quelli scartati.
+- **Il gusto dipende dall'emozione.** Ogni scelta resta in memoria insieme all'emozione in cui l'hai fatta, quindi per la malinconia può imparare cose diverse che per la gioia.
+
+Il Laboratorio mostra a che punto è: quante scelte, quanti tentativi ti servivano all'inizio e quanti ora, quali tavolozze e segni preferisci. *Ricomincia da zero* azzera tutto.
+
+Con il gusto a zero il motore disegna esattamente come prima: gli scatti vecchi non cambiano.
+
+## Il momento: dati aperti al posto dei sensori
 
 Finché non c'è l'hardware, i **sensori sono dati aperti** ricavati da una posizione e da un istante.
 
@@ -13,7 +43,9 @@ Finché non c'è l'hardware, i **sensori sono dati aperti** ricavati da una posi
 | **Solo sensori** | Dove sei adesso (GPS del dispositivo) | Tutti dai dati aperti, più il microfono se vuoi misurare il rumore |
 | **Immagine + sensori** | Dove e quando è stata scattata la foto (GPS ed EXIF; se mancano, dispositivo e data del file) | Luce e colore della luce dalla foto, il resto dai dati aperti di quel luogo e di quell'ora |
 
-Restano due strumenti di prova: le **scene simulate**, che funzionano anche offline, e l'interruttore **Taratura a mano** per impostare direttamente lo stato d'animo.
+Se non rilevi nulla e scegli solo l'emozione sulla ghiera, il francobollo nasce comunque, con un ambiente neutro. Nel Laboratorio restano le **scene simulate**, che funzionano anche offline, e la **Taratura a mano** per impostare direttamente lo stato d'animo.
+
+Quanto pesa ciò che senti rispetto ai dati si regola nel Laboratorio (predefinito 75 %). Ciò che senti decide la struttura del francobollo; l'ambiente tiene buona parte della luce e del colore.
 
 ### Fonti dei dati
 
@@ -46,7 +78,9 @@ Attenzione: molte app di messaggistica tolgono GPS ed EXIF. Per i test usa la fo
 ## Come funziona il motore
 
 ```
-sensori → vettore emotivo → grammatica → motori grafici → 6 inchiostri
+sensori ─┐
+         ├→ vettore emotivo → grammatica (+ stile imparato) → motori grafici → 6 inchiostri
+ghiera  ─┘
 ```
 
 1. **Vettore emotivo** (0–1): valenza, energia, tensione, intimità, chiave (luminosità), calore.
@@ -65,6 +99,10 @@ public/                    il sito (servito così com'è, senza build)
   engine/atmosfera-engine.js   il motore: puro, gira nel browser e in Node
   js/photo.js                  lettura della foto: EXIF (anche GPS), luce, colore, qualità
   js/atmo.js                   dati aperti: meteo, aria, luogo, rumore, modello della luce
+  js/feel.js                   la ghiera delle emozioni e il lessico delle parole
+  js/taste.js                  varianti e apprendimento del gusto
+  js/db.js                     archivio nel browser (IndexedDB)
+  js/zip.js                    zip senza compressione, per esportare e importare
   js/app.js                    l'interfaccia
 scripts/
   test.js                  test senza dipendenze
@@ -80,7 +118,7 @@ Serve Node 18 o successivo.
 
 ```bash
 npm run dev      # apre http://localhost:3000
-npm test         # 14 test: motore, foto, sole, luce, rumore, raccolta dati simulata
+npm test         # 23 test: motore, stile, gusto, ghiera, parole, foto, dati aperti, zip
 npm run sheet    # crea out/foglio.png con 8 scene × 5 semi
 ```
 
@@ -100,15 +138,30 @@ git push -u origin main
 3. *Deploy*. Ogni push su `main` aggiorna il sito; ogni altro branch ottiene un'anteprima.
 4. Al primo "Rileva qui e ora" il telefono chiede il permesso per la posizione; al primo "Ascolta 3 secondi" quello per il microfono. `vercel.json` consente posizione, microfono e fotocamera solo a questo sito.
 
-## Esportazioni
+## Archivio ed esportazioni
 
-- **Scarica PNG**: il francobollo ingrandito 4 volte, a pixel netti.
-- **Esporta per il display**: il buffer grezzo a 4 bit per pixel (28.800 byte), due pixel per byte con il nibble alto per primo. I codici colore sono quelli dei driver Spectra 6 di Waveshare (nero 0, bianco 1, giallo 2, rosso 3, blu 5, verde 6). **Vanno verificati sul datasheet del pannello** prima di usarli sull'hardware.
-- **Album**: resta nel browser (localStorage). Si può esportare e importare in JSON. Ogni voce conserva dati, stato d'animo e seme, non l'immagine: come sul dispositivo, il francobollo si ridisegna.
+L'archivio vive nel browser del dispositivo (IndexedDB), insieme al gusto imparato. Ogni voce conserva l'immagine esatta che hai scelto (PNG 240 × 240), quindi resta uguale anche se il motore cambierà in futuro. Al primo salvataggio l'app chiede al browser di non cancellarlo quando serve spazio. Gli scatti delle versioni precedenti vengono importati da soli.
+
+- **Salva immagine**: il francobollo a 960 × 960 pixel, a pixel netti.
+- **Esporta tutto (.zip)**: è il backup e il modo di portare l'archivio su un altro dispositivo. Contiene:
+
+  | File | Contenuto |
+  |---|---|
+  | `immagini/` | tutti i francobolli, con data ed emozione nel nome |
+  | `atmosfera.csv` | una riga per momento; si apre con Excel o Numbers (separatore `;`) |
+  | `atmosfera.json` | tutti i dati, per reimportare |
+  | `gusto.json` | ciò che l'app ha imparato |
+
+- **Importa**: accetta lo zip così com'è (o un vecchio album in JSON). Unisce senza duplicare. Recupera anche il gusto, se quello nel file è più maturo.
+- **Esporta per il display** (Laboratorio): il buffer grezzo a 4 bit per pixel (28.800 byte), due pixel per byte con il nibble alto per primo. I codici colore sono quelli dei driver Spectra 6 di Waveshare (nero 0, bianco 1, giallo 2, rosso 3, blu 5, verde 6). **Vanno verificati sul datasheet del pannello** prima di usarli sull'hardware.
+
+Telefono e computer hanno archivi separati: per unirli, esporta da uno e importa nell'altro.
 
 ## Limiti noti
 
 - La lettura delle emozioni dai sensori è tarata a occhio e va validata con persone vere.
+- Il lessico delle parole è piccolo (circa 100 radici) e non capisce le frasi complesse: propone, non decide.
+- Se cancelli i dati del sito dalle impostazioni del browser, l'archivio si perde: esporta lo zip ogni tanto.
 - La luce stimata da una foto senza EXIF è poco affidabile, perché il telefono corregge l'esposizione da solo.
 - Le foto HEIC dell'iPhone si aprono solo in Safari. Negli altri browser vanno esportate in JPEG.
 - I colori sullo schermo sono più vivi di quelli dell'e-ink.
